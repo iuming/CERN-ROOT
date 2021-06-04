@@ -21,6 +21,9 @@
  breaklines,                                          %自动换行
 }
 
+\usepackage[left=2.5cm, right=2.5cm, top=2.8cm, bottom=2.8cm]{geometry}
+\usepackage{hyperref}
+
 \title{侯哥自制教程视频NOTES}
 \author{刘铭}
 \date{\today}
@@ -319,9 +322,125 @@ Function在拟合中使用较多，其他地方使用较少！
 
 
 \section{Geant4 Beginner}
+Geant4二次开发目录\texttt{sg410mt}，运行目录\texttt{tpt}，编译指令\texttt{. build.sh}，编译完成后会自动进入\texttt{bin}目录下，执行指令\texttt{./tpt}。
+
+一般执行前先执行\texttt{. clear.sh}，将之前编译的cmake文件删除！
+
+使用之前将\texttt{build.sh}文件中Geant4工作目录更改为当前计算机Geant安装目录。
+
+\subsection{探测器设置}
+建模源文件：\texttt{sg4Detector.cc}
+建模的步骤：
+\begin{enumerate}
+    \item 定义材料；
+          \begin{itemize}
+              \item 从Geant4库中找Geant4定义好的材料：
+                    \begin{lstlisting}
+            G4NistManager* nist = G4NistManager::Instance();
+            Air = nist->FindOrBuildMaterial("G4_AIR");
+        \end{lstlisting}
+                    可以在Geant4官网手册找到Geant4定义的材料！
+              \item 自己定义材料：
+                    \begin{lstlisting}
+                  //Vacuum
+                  new G4Material("vacuum", z=1., a=1.01*g/mole, density=universe_mean_density, kStateGas, 2.73*kelvin, 3.e-18*pascal);
+
+                  //Scitillator(BC408)
+                  BC408 = new G4Material("BC408", density=1.03*g/mole, nel=2);
+                  BC408->AddElement(C, natoms=10);
+                  BC408->AddElement(H, natoms=11);
+              \end{lstlisting}
+                    可定义单质、化合物、混合物等材料，具体定义可参考Geant4官网样例以及文档！
+          \end{itemize}
+    \item 定义几何体，具体步骤如下：
+          \begin{itemize}
+              \item 通过\texttt{G4Material::GetMaterial()}获取\texttt{DefineMaterial()}中定义的材料：
+                    \begin{lstlisting}
+            G4Material* world_mat =  G4Material::GetMaterial("G4_AIR");
+        \end{lstlisting}
+              \item 定义\texttt{World}:
+                    \begin{lstlisting}
+             G4Box* soildWorld = new G4Box("world", 0.5*world_x, 0.5*world_y, 0.5*world_y);
+             logicWorld = new G4LogicalVolume(soildVolume, world_mat, "world");
+             physiWorld = new G4PVPlacement(0, G4ThreeVector(), logicalVolume, "world", 0, false, 0, checkOverlaps);
+        \end{lstlisting}
+                    建立几何体分为三个步骤，首先建立\texttt{soildVolume}，主要定义形状和尺寸；然后建立\texttt{logicalVolume}，主要定义材料；最后建立\texttt{PhysicalVolume}，主要定义位置和其他几何体相互关系、是否旋转等信息。
+                    \newline
+                    \texttt{soildVolume}在Geant4中定义过很多形状，可以查询Geant4手册进行学习！
+                    \newline
+                    \texttt{PhysicalVolume}具体参数可参照Geant4官方手册或者本人之前学习Geant4所做的\href{https://github.com/iuming/Geant4_Learning/blob/16f8670a6f606cbc0eca1225a81669e54e42594a/example/B1/src/B1DetectorConstruction.cc#L90}{记录}。
+              \item 定义Envelope，定义方式与World相似，其\texttt{physicalVolume}的母体为World；
+              \item 定义实验所需几何体，定义方式与World相似。
+              \item 最后选择几何体作为探测器，定义为\texttt{SD}(灵敏探测器)
+                    \begin{lstlisting}
+                  void sg4Detector::ConstructSDandField(){
+                      DefineOneSD(<logicalVolume>);
+                  }
+              \end{lstlisting}
+          \end{itemize}
+\end{enumerate}
+
+\subsection{源项设置}
+源项设置文件：\texttt{input.txt}，该文件为读卡文件！
+\newline
+设置多线程：\texttt{NumberOfThreads <Number>}
+
+更改源项设置位置：\texttt{primary particle}
+
+粒子种类：\texttt{opticalphoton, neutron, alpha, gamma, ion}
+
+离子参数：\texttt{IonZ(原子序数), IonA(质量数), IonEstar(激发态), IonQ(带电量)}
+
+初射动能：\texttt{Ekprimary <动能个数> <能量>} \\
+\hspace*{2.5cm} \texttt{EkWeight <动能个数> <权重>}
+
+粒子入射位置：\texttt{xInitParimary <xPosition>} \\
+\hspace*{3.2cm} \texttt{yInitParimary <yPosition>} \\
+\hspace*{3.2cm} \texttt{zInitParimary <zPosition>}
+
+源项大小(弥散范围)：\texttt{xRangePrimary <xSize>} \\
+\hspace*{2.5cm} \texttt{yRangePrimary <ySize>} \\
+\hspace*{2.5cm} \texttt{zRangePrimary <zSize>}
+\newline
+通过设置$ xyz $方面源项的大小，可以设置该放射源为点源、线源、面源或者体源！本质上为源项中心在弥散范围内产生随机数作为粒子发射初始位置！
+
+粒子旋转角(粒子初射方向)：\texttt{DirectRotX <Rot>} \\
+\hspace*{5.5cm} \texttt{DirectRotY <Rot>} \\
+\hspace*{5.5cm} \texttt{DirectRotZ <Rot>}
+
+粒子初射范围(弥散)：\texttt{RangeThetaPri <degree>}
+\newline
+粒子发射范围，若为$ 0 $，则发射角度不变；若为$ 180 $，则代表模拟的粒子为点源，各项同性。
+
+\textbf{额外补充：}粒子源设置在Geant4官方教程中有更多方法，例如视频中中子源设置，采用将中子能谱分割的方式模拟并不精确。在官方教程中，可以将能谱导入Geant4，采用\texttt{GPS(Geant4 Particle Sources)}方式模拟中子源，相比于分割能谱的方式能够更加精确的模拟中子源！
+
+Geant4模拟生成文件名：\texttt{FileNameNt: <FileName>.root}
+
+\subsection{数据处理}
+若采用多线程运行Geant4，会产生多个root文件。例如，采用4线程模拟，将会生成\texttt{test\_t1.root}，\texttt{test\_t2.root}、\texttt{test\_t3.root}、\texttt{test\_t4.root}四个root文件。Geant4模拟结束后，首先采用\texttt{hadd all.root test\_t*.root}命令来合并所有\texttt{root}文件。
+
+\textbf{额外补充：}Geant4里面对于多线程已开发出自动合并的方法，可见官网教程\href{https://github.com/Geant4/geant4/blob/3dfcdb544e19888c7a5979720ae09596207436f2/examples/extended/analysis/AnaEx01/src/HistoManager.cc#L60}{AnaEx01}。
+
+完成数据合并后，使用ROOT打开root文件：\texttt{root -l all.root}；
+
+打开root文件后，可输入\texttt{.ls}查看root文件下有哪些内容；
+
+然后输入\texttt{t->Print()}查看\texttt{tree}下的\texttt{Branch}分支；输入\texttt{t->Scan()}来查看\texttt{Branch}数据。
+
+ROOT文件中\texttt{tree}可以看成是一个表格，其中每个\texttt{Branch}可以看成是一列。\texttt{Branch}中一般存储序号、能量、粒子名字、位置$ (x, y, z) $、时间等。
+
+sg410mt文件中含有Formate.txt，里面包含了\texttt{Branch}信息。
+
+Geant4模拟运行过程可见本人之前学习Geant4的\href{https://blog.csdn.net/sinat_33249803/article/details/116067709?spm=1001.2014.3001.5501}{记录}。
 
 
-
+对\texttt{tree}数据处理：
+\begin{enumerate}
+    \item \texttt{t->MakeSelector("ana")} 会生成\texttt{ana.C}和\texttt{ana.h}两个文件来处理\texttt{tree}的\texttt{Branch}
+    \item 编辑\texttt{ana.C}文件中的函数，里面有\texttt{Begin()}、\texttt{SlaveBegin()}、\texttt{Process()}、\texttt{SlaveTerminate()}、\texttt{Terminate()}五个函数。常用的函数为\texttt{Begin()}、\texttt{Process()}、\texttt{Terminate()}三个函数，该类的调用方式为：首先运行\texttt{Begin()}函数，然后重复运行\texttt{Process()}函数，重复次数为Geant4模拟的Event数，结束后运行\texttt{Terminate()}函数。
+    \item 一般来说，在\texttt{Begin()}函数中定义直方图，在\texttt{Process()}函数中填充直方图数据，在\texttt{Terminate()}函数中绘制直方图！
+    \item 编写完成\texttt{ana}类中函数后，使用ROOT打开\texttt{root}文件，然后输入指令\texttt{tree->Process("ana.C")}执行。
+\end{enumerate}
 
 \section{Analysis Example}
 \subsection{获取能谱}
