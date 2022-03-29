@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "rf101_basics.C": "cpp",
+        "rf102_dataimport.C": "cpp",
+        "rf103_interprfuncs.C": "cpp",
+        "rf104_classfactory.C": "cpp",
+        "rf105_funcbinding.C": "cpp"
+    }
+}
