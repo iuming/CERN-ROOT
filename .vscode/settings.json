@@ -115,6 +115,7 @@
     "latex-workshop.view.pdf.internal.synctex.keybinding": "double-click",
     "files.associations": {
         "iosfwd": "cpp",
-        "rf101_basics.C": "cpp"
+        "rf101_basics.C": "cpp",
+        "rf102_dataimport.C": "cpp"
     }
 }
